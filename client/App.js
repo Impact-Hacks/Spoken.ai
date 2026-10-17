@@ -12,6 +12,7 @@ import {
 } from '@expo-google-fonts/figtree';
 
 import { OFFERS } from './src/data/mock';
+import { submitIntake } from './src/lib/api';
 import { colors } from './src/theme';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import DescribeScreen from './src/screens/DescribeScreen';
@@ -59,6 +60,11 @@ const INITIAL = {
   unit: '',
   email: '',
   sending: false,
+  receipt: null,
+  // status: idle | loading | ready | error. Ready carries sessionId, suggestedService, questions.
+  intake: { status: 'idle' },
+  // True when the user tapped Continue on details before the questions came back.
+  awaitingQuestions: false,
 };
 
 export default function App() {
@@ -71,6 +77,7 @@ export default function App() {
   });
   const [state, setState] = useState(INITIAL);
   const timers = useRef([]);
+  const intakeRequest = useRef(null);
 
   const update = useCallback((patch) => setState((s) => ({ ...s, ...patch })), []);
   const go = useCallback((screen) => update({ screen }), [update]);
@@ -88,20 +95,90 @@ export default function App() {
     return () => sub.remove();
   }, [state.screen, go]);
 
+  // Sends photo + issue + budget (never the contact details) as soon as the user leaves the
+  // describe screen, so Gemini's questions are usually ready by the time details are filled in.
+  const startIntake = () => {
+    const { photo, issue, budget, intake } = state;
+    const key = `${photo.uri}|${issue.trim()}|${budget}`;
+    if (intakeRequest.current?.key === key && intake.status !== 'error') return;
+
+    const request = { key };
+    intakeRequest.current = request;
+    update({ intake: { status: 'loading' }, answers: {} });
+
+    submitIntake({ photo, issue, budget })
+      .then((data) => {
+        if (intakeRequest.current !== request) return;
+        setState((s) => ({
+          ...s,
+          intake: { status: 'ready', ...data },
+          screen: s.awaitingQuestions && s.screen === 'details' ? 'questions' : s.screen,
+          awaitingQuestions: false,
+        }));
+      })
+      .catch((err) => {
+        if (intakeRequest.current !== request) return;
+        setState((s) => ({
+          ...s,
+          intake: { status: 'error', code: err.code, message: err.message },
+          awaitingQuestions: false,
+        }));
+      });
+  };
+
+  const describeDone = () => {
+    startIntake();
+    go('details');
+  };
+
+  const detailsDone = () => {
+    const { status, code } = state.intake;
+    if (status === 'ready') return go('questions');
+    if (status === 'error' && code === 'IMAGE_UNCLEAR') {
+      intakeRequest.current = null;
+      return update({ photo: null, intake: { status: 'idle' }, screen: 'describe' });
+    }
+    update({ awaitingQuestions: true });
+    if (status !== 'loading') startIntake();
+  };
+
   // Simulated call + comparison; swap for POST /api/call and status polling.
   const startCalls = () => {
     go('loading');
     later(() => setState((s) => (s.screen === 'loading' ? { ...s, screen: 'results' } : s)), 3500);
   };
 
-  // Simulated send; swap for the booking endpoint.
+  // Simulated send; swap for the booking endpoint. Once sent, drop the photo, text and
+  // details and keep only what the confirmation screen shows.
   const sendBooking = () => {
     update({ sending: true });
-    later(() => update({ sending: false, screen: 'sent' }), 1200);
+    intakeRequest.current = null;
+    later(
+      () =>
+        setState((s) => {
+          const sent = OFFERS.find((o) => o.id === s.offer);
+          return {
+            ...INITIAL,
+            screen: 'sent',
+            receipt: {
+              provider: sent.name,
+              slot: sent.slots[s.slot],
+              price: sent.priceLong,
+              email: s.email,
+            },
+          };
+        }),
+      1200
+    );
   };
 
-  const restart = () =>
-    setState((s) => ({ ...s, screen: 'onboarding', answers: {}, offer: 'bluewave', slot: 0, sending: false }));
+  // A finished or abandoned flow starts the next one from a blank slate: photo, text and details.
+  const restart = () => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    intakeRequest.current = null;
+    setState(INITIAL);
+  };
 
   if (!fontsLoaded) return null;
 
@@ -117,6 +194,8 @@ export default function App() {
           update={update}
           go={go}
           offer={offer}
+          describeDone={describeDone}
+          detailsDone={detailsDone}
           startCalls={startCalls}
           sendBooking={sendBooking}
           restart={restart}

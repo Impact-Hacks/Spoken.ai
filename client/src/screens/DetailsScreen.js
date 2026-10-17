@@ -2,9 +2,18 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Body, Field, Footer, IconButton, Input, KeyboardScreen, PrimaryButton, Title } from '../components/ui';
 import { colors, font } from '../theme';
 
-export default function DetailsScreen({ state, update, go }) {
+export default function DetailsScreen({ state, update, go, detailsDone }) {
   const ok =
     state.name.trim() && state.phone.trim() && state.address.trim() && state.zip.length === 5;
+  const { status, code, message } = state.intake;
+  const waiting = state.awaitingQuestions && status === 'loading';
+  const failed = status === 'error';
+
+  let hint = ok ? null : 'Fill in name, phone, address and a 5-digit ZIP';
+  if (ok && failed) hint = message;
+  let label = 'Continue';
+  if (waiting) label = 'Preparing your questions…';
+  else if (ok && failed) label = code === 'IMAGE_UNCLEAR' ? 'Retake photo' : 'Try again';
 
   return (
     <KeyboardScreen>
@@ -66,8 +75,8 @@ export default function DetailsScreen({ state, update, go }) {
           </View>
         </View>
       </Body>
-      <Footer hint={ok ? null : 'Fill in name, phone, address and a 5-digit ZIP'}>
-        <PrimaryButton label="Continue" disabled={!ok} onPress={() => go('questions')} />
+      <Footer hint={hint}>
+        <PrimaryButton label={label} disabled={!ok || waiting} onPress={detailsDone} />
       </Footer>
     </KeyboardScreen>
   );
