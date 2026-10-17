@@ -5,8 +5,8 @@ import { colors, font } from '../theme';
 
 const PICK_OPTIONS = { mediaTypes: ['images'], quality: 0.7 };
 
-export default function DescribeScreen({ state, update, go }) {
-  const ok = !!state.photo && state.issue.trim().length > 0;
+export default function DescribeScreen({ state, update, go, describeDone }) {
+  const ok = !!state.photo && state.issue.trim().length > 0 && Number(state.budget) > 0;
 
   const pick = async (source) => {
     const fromCamera = source === 'camera';
@@ -71,7 +71,7 @@ export default function DescribeScreen({ state, update, go }) {
               placeholder="Describe the problem in your own words"
             />
           </Field>
-          <Field label="Max budget" optional>
+          <Field label="Max budget">
             <Input
               prefix="$"
               value={state.budget}
@@ -82,8 +82,8 @@ export default function DescribeScreen({ state, update, go }) {
           </Field>
         </View>
       </Body>
-      <Footer hint={ok ? null : 'Add a photo and a description to continue'}>
-        <PrimaryButton label="Continue" disabled={!ok} onPress={() => go('details')} />
+      <Footer hint={ok ? null : 'Add a photo, a description and your budget to continue'}>
+        <PrimaryButton label="Continue" disabled={!ok} onPress={describeDone} />
       </Footer>
     </KeyboardScreen>
   );

@@ -1,19 +1,11 @@
-// Demo data from the design prototype. Replace with API responses once the backend is live.
+// Demo offers from the design prototype. Replace with API responses once calls are live.
 
-export const SERVICE = 'Plumbing';
-
-export const QUESTIONS = [
-  {
-    id: 'q1',
-    text: 'Where does water first appear around the pictured pipe?',
-    options: ['At a connection', 'Along the pipe', "I'm not sure"],
-  },
-  {
-    id: 'q2',
-    text: 'How is the leak behaving now?',
-    options: ['Occasional drips', 'Continuous leaking', 'Not leaking right now'],
-  },
-];
+export const SERVICE_LABELS = {
+  electrical_appliances: 'Electrical appliances',
+  plumbing: 'Plumbing',
+  vehicle: 'Vehicle',
+  carpentry: 'Carpentry',
+};
 
 export const OFFERS = [
   {
@@ -50,10 +42,12 @@ export const OFFERS = [
   },
 ];
 
-export function buildSummary(answers, budget) {
-  const { q1, q2 } = answers;
-  const behavior = q2 ? q2.toLowerCase() : 'a leak';
-  const where = q1 && q1 !== "I'm not sure" ? ' ' + q1.toLowerCase() : '';
-  const budgetPart = budget ? `, and whether it can fit your $${budget} budget` : '';
-  return `You report ${behavior}${where} under your kitchen sink. I'll ask plumbers whether they can repair it, their earliest availability and the price, including call-out fees${budgetPart}.`;
+// Local stand-in until POST /api/answers returns Gemini's brief.
+export function buildSummary(issue, questions, answers, budget) {
+  const reported = questions
+    .map((q) => answers[q.id])
+    .filter((a) => a && a !== "I'm not sure")
+    .map((a) => a.charAt(0).toLowerCase() + a.slice(1));
+  const details = reported.length ? ` You add: ${reported.join('; ')}.` : '';
+  return `You report: "${issue.trim()}"${details} I'll ask providers whether they can do the job, their earliest availability and the price, including call-out fees, and whether it can fit your $${budget} budget.`;
 }

@@ -5,7 +5,9 @@
   "dependencies": {
     "@expo-google-fonts/figtree": "^0.4.1",
     "expo": "~57.0.30",
+    "expo-constants": "~57.0.22",
     "expo-font": "~57.0.4",
+    "expo-image-manipulator": "~57.0.21",
     "expo-image-picker": "~57.0.20",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",

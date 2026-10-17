@@ -2,10 +2,11 @@ import { StyleSheet, Text, View } from 'react-native';
 import { CheckIcon, Footer, PrimaryButton } from '../components/ui';
 import { colors, font } from '../theme';
 
-export default function SentScreen({ state, offer, restart }) {
+export default function SentScreen({ state, restart }) {
+  const { receipt } = state;
   const rows = [
-    ['Requested time', offer.slots[state.slot]],
-    ['Discussed price', offer.priceLong],
+    ['Requested time', receipt.slot],
+    ['Discussed price', receipt.price],
     ['Appointment', 'Not yet confirmed'],
   ];
 
@@ -19,7 +20,7 @@ export default function SentScreen({ state, offer, restart }) {
           Booking request sent
         </Text>
         <Text style={styles.text}>
-          Awaiting confirmation from {offer.name}. They'll reply to {state.email}.
+          Awaiting confirmation from {receipt.provider}. They'll reply to {receipt.email}.
         </Text>
         <View style={styles.table}>
           {rows.map(([k, v], i) => (

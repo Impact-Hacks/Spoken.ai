@@ -1,10 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Body, Footer, IconButton, PrimaryButton, RadioOption, Title } from '../components/ui';
-import { QUESTIONS } from '../data/mock';
 import { colors, font } from '../theme';
 
 export default function QuestionsScreen({ state, update, go }) {
-  const ok = QUESTIONS.every((q) => state.answers[q.id]);
+  const questions = state.intake.questions || [];
+  const ok = questions.length > 0 && questions.every((q) => state.answers[q.id]);
 
   return (
     <>
@@ -12,9 +12,10 @@ export default function QuestionsScreen({ state, update, go }) {
         <IconButton icon="back" label="Back" onPress={() => go('details')} />
         <Title>Two quick questions</Title>
         <View style={{ gap: 24 }}>
-          {QUESTIONS.map((q) => (
+          {questions.map((q) => (
             <View key={q.id} accessibilityRole="radiogroup" style={{ gap: 8 }}>
               <Text style={styles.question}>{q.text}</Text>
+              {q.purpose ? <Text style={styles.purpose}>Why we ask: {q.purpose}</Text> : null}
               <View style={{ gap: 8 }}>
                 {q.options.map((label) => (
                   <RadioOption
@@ -37,5 +38,6 @@ export default function QuestionsScreen({ state, update, go }) {
 }
 
 const styles = StyleSheet.create({
-  question: { ...font(600), fontSize: 15, color: colors.ink },
+  question: { ...font(600), fontSize: 15, lineHeight: 21, color: colors.ink },
+  purpose: { ...font(400), fontSize: 13, lineHeight: 18, color: colors.muted },
 });

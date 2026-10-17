@@ -1,10 +1,11 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Body, Field, Footer, IconButton, PrimaryButton, Title } from '../components/ui';
-import { OFFERS, SERVICE, buildSummary } from '../data/mock';
+import { OFFERS, SERVICE_LABELS, buildSummary } from '../data/mock';
 import { colors, font } from '../theme';
 
 export default function SummaryScreen({ state, go, startCalls }) {
   const count = OFFERS.length;
+  const { suggestedService, questions = [] } = state.intake;
 
   return (
     <>
@@ -14,12 +15,12 @@ export default function SummaryScreen({ state, go, startCalls }) {
         <View style={{ gap: 20 }}>
           <Field label="Service">
             <View style={styles.box}>
-              <Text style={styles.value}>{SERVICE}</Text>
+              <Text style={styles.value}>{SERVICE_LABELS[suggestedService] || 'Repair'}</Text>
             </View>
           </Field>
           <Field label="Request">
             <View style={[styles.box, styles.request]}>
-              <Text style={styles.value}>{buildSummary(state.answers, state.budget)}</Text>
+              <Text style={styles.value}>{buildSummary(state.issue, questions, state.answers, state.budget)}</Text>
             </View>
           </Field>
           <Pressable accessibilityRole="link" onPress={() => go('questions')} hitSlop={8}>
