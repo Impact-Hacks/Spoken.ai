@@ -1,0 +1,15 @@
+node_modules/
+backend/data/
+
+.env
+.env.*
+!.env.example
+
+*.log
+logs/
+npm-debug.log*
+
+dist/
+build/
+coverage/
+.DS_Store
