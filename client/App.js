@@ -11,8 +11,7 @@ import {
   Figtree_800ExtraBold,
 } from '@expo-google-fonts/figtree';
 
-import { OFFERS } from './src/data/mock';
-import { submitIntake } from './src/lib/api';
+import { getCallStatus, getResults, startCalls as requestCalls, submitAnswers, submitIntake } from './src/lib/api';
 import { colors } from './src/theme';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import DescribeScreen from './src/screens/DescribeScreen';
@@ -51,7 +50,12 @@ const INITIAL = {
   issue: '',
   budget: '',
   answers: {},
-  offer: 'bluewave',
+  // status: idle | saving | ready | error. Ready carries providerCount.
+  brief: { status: 'idle' },
+  // status: idle | starting | processing | error. progress is [{ n, status }] per call.
+  calls: { status: 'idle', progress: [] },
+  offers: [],
+  offer: null,
   slot: 0,
   name: '',
   phone: '',
@@ -78,6 +82,7 @@ export default function App() {
   const [state, setState] = useState(INITIAL);
   const timers = useRef([]);
   const intakeRequest = useRef(null);
+  const callsRun = useRef(null);
 
   const update = useCallback((patch) => setState((s) => ({ ...s, ...patch })), []);
   const go = useCallback((screen) => update({ screen }), [update]);
@@ -142,10 +147,52 @@ export default function App() {
     if (status !== 'loading') startIntake();
   };
 
-  // Simulated call + comparison; swap for POST /api/call and status polling.
+  // Saves the two answers, then shows the summary with the real provider count.
+  const answersDone = () => {
+    update({ brief: { status: 'saving' } });
+    submitAnswers({ sessionId: state.intake.sessionId, answers: state.answers })
+      .then(({ providerCount }) =>
+        setState((s) => ({ ...s, brief: { status: 'ready', providerCount }, screen: 'summary' }))
+      )
+      .catch((err) => update({ brief: { status: 'error', message: err.message } }));
+  };
+
+  // Polls call progress every ~3 s (backing off on errors) until the comparison is ready.
+  const pollCalls = (run, sessionId, errors = 0) => {
+    if (callsRun.current !== run) return;
+    getCallStatus(sessionId)
+      .then(async ({ status, calls }) => {
+        if (callsRun.current !== run) return;
+        if (status === 'processing') {
+          setState((s) => ({ ...s, calls: { status: 'processing', progress: calls } }));
+          return later(() => pollCalls(run, sessionId), 3000);
+        }
+        const { offers, recommendedId } = await getResults(sessionId);
+        if (callsRun.current !== run) return;
+        const first = offers.find((o) => o.slots.length);
+        setState((s) => ({
+          ...s,
+          calls: { status: 'idle', progress: calls },
+          offers,
+          offer: recommendedId || first?.id || offers[0]?.id || null,
+          slot: 0,
+          screen: 'results',
+        }));
+      })
+      .catch(() => later(() => pollCalls(run, sessionId, errors + 1), Math.min(3000 * 2 ** errors, 15000)));
+  };
+
   const startCalls = () => {
-    go('loading');
-    later(() => setState((s) => (s.screen === 'loading' ? { ...s, screen: 'results' } : s)), 3500);
+    const run = {};
+    callsRun.current = run;
+    const { sessionId } = state.intake;
+    update({ screen: 'loading', calls: { status: 'starting', progress: [] } });
+    requestCalls({ sessionId, customerName: state.name })
+      .then(() => pollCalls(run, sessionId))
+      .catch((err) => {
+        if (callsRun.current !== run) return;
+        update({ calls: { status: 'error', progress: [], message: err.message } });
+      });
   };
 
   // Simulated send; swap for the booking endpoint. Once sent, drop the photo, text and
@@ -156,7 +203,7 @@ export default function App() {
     later(
       () =>
         setState((s) => {
-          const sent = OFFERS.find((o) => o.id === s.offer);
+          const sent = s.offers.find((o) => o.id === s.offer);
           return {
             ...INITIAL,
             screen: 'sent',
@@ -177,13 +224,14 @@ export default function App() {
     timers.current.forEach(clearTimeout);
     timers.current = [];
     intakeRequest.current = null;
+    callsRun.current = null;
     setState(INITIAL);
   };
 
   if (!fontsLoaded) return null;
 
   const Screen = SCREENS[state.screen];
-  const offer = OFFERS.find((o) => o.id === state.offer);
+  const offer = state.offers.find((o) => o.id === state.offer);
 
   return (
     <SafeAreaProvider>
@@ -196,6 +244,7 @@ export default function App() {
           offer={offer}
           describeDone={describeDone}
           detailsDone={detailsDone}
+          answersDone={answersDone}
           startCalls={startCalls}
           sendBooking={sendBooking}
           restart={restart}

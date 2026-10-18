@@ -21,15 +21,15 @@ export class ApiError extends Error {
   }
 }
 
-async function post(path, body, timeoutMs = 20000) {
+async function request(method, path, body, timeoutMs = 20000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res;
   try {
     res = await fetch(`${API_URL}${path}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      method,
+      headers: body ? { 'content-type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
   } catch {
@@ -48,6 +48,9 @@ async function post(path, body, timeoutMs = 20000) {
   }
   return data;
 }
+
+const post = (path, body) => request('POST', path, body);
+const get = (path) => request('GET', path, null, 10000);
 
 // Re-encode to a JPEG with a ~1024px long edge; this also bakes in EXIF orientation.
 async function encodePhoto(photo) {
@@ -71,4 +74,24 @@ export async function submitIntake({ photo, issue, budget }) {
     budget: Number(budget),
     clientRequestId: newRequestId(),
   });
+}
+
+/** Saves both answers. Returns { readyToCall, serviceCategory, providerCount }. */
+export function submitAnswers({ sessionId, answers }) {
+  return post('/api/answers', { sessionId, answers });
+}
+
+/** The only call trigger. Returns { status: 'processing', providerCount }. */
+export function startCalls({ sessionId, customerName }) {
+  return post('/api/call', { sessionId, customerName });
+}
+
+/** Returns { status: processing | ready | failed, calls: [{ n, status }] }. */
+export function getCallStatus(sessionId) {
+  return get(`/api/sessions/${sessionId}/status`);
+}
+
+/** Returns { status, offers, recommendedId } once calls are finished. */
+export function getResults(sessionId) {
+  return get(`/api/sessions/${sessionId}/results`);
 }
