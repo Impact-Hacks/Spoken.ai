@@ -31,17 +31,7 @@ export default function BookingScreen({ state, update, go, offer, sendBooking })
               ))}
             </View>
           </Field>
-          <Field label="Your name">
-            <Input value={state.name} onChangeText={(name) => update({ name })} autoComplete="name" />
-          </Field>
-          <Field label="Service address">
-            <Input
-              value={state.address}
-              onChangeText={(address) => update({ address })}
-              autoComplete="street-address"
-            />
-          </Field>
-          <Field label="Contact email">
+          <Field label="Your email">
             <Input
               value={state.email}
               onChangeText={(email) => update({ email })}
@@ -54,7 +44,7 @@ export default function BookingScreen({ state, update, go, offer, sendBooking })
           </Field>
         </View>
       </Body>
-      <Footer>
+      <Footer hint={state.bookingError}>
         <Text style={styles.note}>
           We'll email this request to {offer.name}. They confirm the appointment.
         </Text>

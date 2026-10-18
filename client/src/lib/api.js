@@ -63,7 +63,7 @@ async function encodePhoto(photo) {
   return out.base64;
 }
 
-const newRequestId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+export const newRequestId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 /** Sends the photo, issue and budget. Returns { sessionId, suggestedService, questions }. */
 export async function submitIntake({ photo, issue, budget }) {
@@ -94,4 +94,9 @@ export function getCallStatus(sessionId) {
 /** Returns { status, offers, recommendedId } once calls are finished. */
 export function getResults(sessionId) {
   return get(`/api/sessions/${sessionId}/results`);
+}
+
+/** Emails the booking request to the provider. Returns { bookingId, requestStatus, appointmentStatus }. */
+export function sendBooking(booking) {
+  return post('/api/bookings', booking);
 }
