@@ -1,18 +1,23 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Body, Footer, PrimaryButton } from '../components/ui';
-import { OFFERS } from '../data/mock';
 import { colors, font } from '../theme';
 
-export default function ResultsScreen({ state, update, go, offer }) {
+export default function ResultsScreen({ state, update, go, offer, restart }) {
+  const canBook = !!offer && offer.slots.length > 0;
+
   return (
     <>
       <Body>
         <Text accessibilityRole="header" style={styles.title}>
           Your offers
         </Text>
-        <Text style={styles.sub}>Tap a provider to choose it.</Text>
+        <Text style={styles.sub}>
+          {state.offers.some((o) => o.slots.length)
+            ? 'Tap a provider to choose it.'
+            : 'No provider offered an appointment time this round.'}
+        </Text>
         <View accessibilityRole="radiogroup" style={{ gap: 10 }}>
-          {OFFERS.map((o) => {
+          {state.offers.map((o) => {
             const selected = o.id === state.offer;
             const available = o.slots.length > 0;
             return (
@@ -41,7 +46,11 @@ export default function ResultsScreen({ state, update, go, offer }) {
         </View>
       </Body>
       <Footer>
-        <PrimaryButton label={`Choose ${offer.name}`} onPress={() => go('booking')} />
+        {canBook ? (
+          <PrimaryButton label={`Choose ${offer.name}`} onPress={() => go('booking')} />
+        ) : (
+          <PrimaryButton label="Start over" onPress={restart} />
+        )}
       </Footer>
     </>
   );

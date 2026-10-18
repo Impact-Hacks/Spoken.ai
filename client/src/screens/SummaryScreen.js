@@ -1,10 +1,11 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Body, Field, Footer, IconButton, PrimaryButton, Title } from '../components/ui';
-import { OFFERS, SERVICE_LABELS, buildSummary } from '../data/mock';
+import { SERVICE_LABELS, buildSummary } from '../data/mock';
 import { colors, font } from '../theme';
 
 export default function SummaryScreen({ state, go, startCalls }) {
-  const count = OFFERS.length;
+  const count = state.brief.providerCount || 0;
+  const providers = count === 1 ? 'provider' : 'providers';
   const { suggestedService, questions = [] } = state.intake;
 
   return (
@@ -29,14 +30,18 @@ export default function SummaryScreen({ state, go, startCalls }) {
         </View>
         <View style={{ flex: 1, minHeight: 20 }} />
         <View style={styles.callout}>
-          <Text style={styles.calloutTitle}>I found {count} providers who may help.</Text>
-          <Text style={styles.calloutText}>
-            Shall I call them? You won't need to speak or pick up.
+          <Text style={styles.calloutTitle}>
+            {count ? `I found ${count} ${providers} who may help.` : "I couldn't find providers for this yet."}
           </Text>
+          {count ? (
+            <Text style={styles.calloutText}>
+              Shall I call them? You won't need to speak or pick up.
+            </Text>
+          ) : null}
         </View>
       </Body>
       <Footer>
-        <PrimaryButton label={`Call ${count} providers`} onPress={startCalls} />
+        <PrimaryButton label={`Call ${count} ${providers}`} disabled={!count} onPress={startCalls} />
       </Footer>
     </>
   );

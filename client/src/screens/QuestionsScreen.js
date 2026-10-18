@@ -2,9 +2,11 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Body, Footer, IconButton, PrimaryButton, RadioOption, Title } from '../components/ui';
 import { colors, font } from '../theme';
 
-export default function QuestionsScreen({ state, update, go }) {
+export default function QuestionsScreen({ state, update, go, answersDone }) {
   const questions = state.intake.questions || [];
   const ok = questions.length > 0 && questions.every((q) => state.answers[q.id]);
+  const saving = state.brief.status === 'saving';
+  const hint = state.brief.status === 'error' ? state.brief.message : null;
 
   return (
     <>
@@ -30,8 +32,12 @@ export default function QuestionsScreen({ state, update, go }) {
           ))}
         </View>
       </Body>
-      <Footer>
-        <PrimaryButton label="Continue" disabled={!ok} onPress={() => go('summary')} />
+      <Footer hint={hint}>
+        <PrimaryButton
+          label={saving ? 'Saving your answers…' : 'Continue'}
+          disabled={!ok || saving}
+          onPress={answersDone}
+        />
       </Footer>
     </>
   );

@@ -1,7 +1,8 @@
 // Gemini REST client. The API key stays on the server and is never logged.
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
-const TIMEOUT_MS = 8000;
+const INTAKE_TIMEOUT_MS = 8000;
+const EXTRACT_TIMEOUT_MS = 20000;
 
 export const CATEGORIES = ['electrical_appliances', 'plumbing', 'vehicle', 'carpentry'];
 
@@ -77,7 +78,7 @@ function validIntake(out) {
   );
 }
 
-async function generate(parts, schema) {
+async function generate(parts, schema, timeoutMs) {
   const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new GeminiUnavailableError('GEMINI_API_KEY is not set');
@@ -87,7 +88,7 @@ async function generate(parts, schema) {
     res = await fetch(`${API}/${model}:generateContent`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: {
@@ -125,8 +126,61 @@ export async function analyzeIntake({ imageBase64, mimeType, issue, budget }) {
     { text: intakePrompt(issue, budget) },
   ];
   for (let attempt = 0; attempt < 2; attempt++) {
-    const out = await generate(parts, INTAKE_SCHEMA);
+    const out = await generate(parts, INTAKE_SCHEMA, INTAKE_TIMEOUT_MS);
     if (validIntake(out)) return out;
   }
   throw new GeminiUnavailableError('Gemini returned invalid questions twice');
+}
+
+const OFFER_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    outcome: { type: 'STRING', enum: ['quoted', 'no_quote', 'cannot_help', 'voicemail', 'no_answer'] },
+    priceBasis: { type: 'STRING', enum: ['fixed_job', 'estimate', 'hourly', 'inspection_only', 'no_quote'] },
+    initialAmount: { type: 'NUMBER', nullable: true, description: 'First price the provider stated, USD.' },
+    finalAmount: { type: 'NUMBER', nullable: true, description: 'Last price the provider agreed to, USD.' },
+    minimumHours: { type: 'NUMBER', nullable: true },
+    includedWork: { type: 'STRING', description: 'What the price covers, short. Empty if unknown.' },
+    extraFees: { type: 'STRING', description: 'Extra or excluded charges, short. Empty if none stated.' },
+    slots: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          date: { type: 'STRING', description: 'YYYY-MM-DD' },
+          window: { type: 'STRING', description: 'Arrival window written compactly, e.g. "9–11 AM", "1–3 PM", "10 AM–12 PM".' },
+          timeZone: { type: 'STRING', description: 'Abbreviation such as ET. Empty if never stated.' },
+        },
+        required: ['date', 'window', 'timeZone'],
+      },
+    },
+  },
+  required: ['outcome', 'priceBasis', 'initialAmount', 'finalAmount', 'minimumHours', 'includedWork', 'extraFees', 'slots'],
+};
+
+function offerPrompt(transcriptText, providerName, today) {
+  return `Below is a phone call between Sam (an AI assistant asking for a repair quote) and ${providerName}.
+Today is ${today}.
+
+Extract only what the provider actually said. Never invent a number.
+- outcome: "quoted" if they gave any price (including an hourly rate or inspection fee); "no_quote" if they would not price it; "cannot_help" if they cannot do the job; "voicemail" or "no_answer" if nobody real answered.
+- priceBasis: fixed_job (complete job, fixed), estimate (subject to inspection), hourly, inspection_only, or no_quote.
+- initialAmount is the first price they stated; finalAmount is the last price they agreed to after any negotiation. Hourly prices are per hour. Use null when unknown.
+- slots: each appointment window they offered, resolved to a calendar date. Leave timeZone empty if they never said one.
+
+Transcript:
+"""
+${transcriptText}
+"""`;
+}
+
+/** Extracts the provider's offer from a finished call transcript. */
+export async function extractOffer({ transcriptText, providerName }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const parts = [{ text: offerPrompt(transcriptText, providerName, today) }];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const out = await generate(parts, OFFER_SCHEMA, EXTRACT_TIMEOUT_MS);
+    if (out && typeof out.outcome === 'string' && Array.isArray(out.slots)) return out;
+  }
+  throw new GeminiUnavailableError('Gemini returned an invalid offer twice');
 }
