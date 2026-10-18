@@ -1,5 +1,6 @@
 // Demo provider rows, not real businesses. Phone numbers never live here: each row's
 // phoneSlot indexes DEMO_PHONES, wrapping around, so one demo number can stand in for all.
+// Booking emails for every provider go to the one teammate address in PROVIDER_EMAIL.
 // listedMin/listedMax are demo listing ranges in USD for the stated listingBasis.
 
 export const PROVIDERS_BY_SERVICE = {
@@ -52,4 +53,15 @@ export function demoPhoneFor(provider) {
     .filter(Boolean);
   if (!phones.length) return null;
   return phones[provider.phoneSlot % phones.length];
+}
+
+/** The teammate address that stands in for every provider. Returns null when PROVIDER_EMAIL is unset. */
+export function demoEmailFor() {
+  return (process.env.PROVIDER_EMAIL || '').trim() || null;
+}
+
+export function findProvider(providerId) {
+  return Object.values(PROVIDERS_BY_SERVICE)
+    .flat()
+    .find((p) => p.id === providerId);
 }

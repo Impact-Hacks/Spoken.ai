@@ -6,7 +6,7 @@ export default function SentScreen({ state, restart }) {
   const { receipt } = state;
   const rows = [
     ['Requested time', receipt.slot],
-    ['Discussed price', receipt.price],
+    ['Quoted price', receipt.price],
     ['Appointment', 'Not yet confirmed'],
   ];
 
@@ -20,7 +20,8 @@ export default function SentScreen({ state, restart }) {
           Booking request sent
         </Text>
         <Text style={styles.text}>
-          Awaiting confirmation from {receipt.provider}. They'll reply to {receipt.email}.
+          Awaiting provider confirmation. Your appointment isn't booked until {receipt.provider}{' '}
+          replies to {receipt.email}.
         </Text>
         <View style={styles.table}>
           {rows.map(([k, v], i) => (

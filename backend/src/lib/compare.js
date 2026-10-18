@@ -17,7 +17,9 @@ const EXCLUSION_DETAIL = {
   analysis_failed: 'Comparison unavailable for this call',
 };
 
-function slotLabels(slots) {
+// Valid future slots, each as { label, date, window, timeZone }. The label is what the
+// screens show; the rest feeds the booking email's calendar file.
+function offeredSlots(slots) {
   const today = new Date().toISOString().slice(0, 10);
   return (slots || [])
     .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s.date) && s.date >= today && s.window)
@@ -28,7 +30,8 @@ function slotLabels(slots) {
         day: 'numeric',
         timeZone: 'UTC',
       });
-      return `${day} · ${s.window}${s.timeZone ? ` ${s.timeZone}` : ''}`;
+      const timeZone = s.timeZone || '';
+      return { label: `${day} · ${s.window}${timeZone ? ` ${timeZone}` : ''}`, date: s.date, window: s.window, timeZone };
     });
 }
 
@@ -42,7 +45,9 @@ function describeOffer(provider, analysis) {
     return { ...base, price: 'No clear price', priceLong: 'No clear price', detail: EXCLUSION_DETAIL[reason], comparable: false };
   }
 
-  const slots = slotLabels(analysis.slots);
+  const offered = offeredSlots(analysis.slots);
+  const slots = offered.map((s) => s.label);
+  const slotTimes = offered.map(({ label, ...time }) => time);
   const notes = [];
   let price;
   let priceLong;
@@ -78,7 +83,7 @@ function describeOffer(provider, analysis) {
   }
   if (analysis.extraFees) notes.push(analysis.extraFees);
 
-  return { ...base, price, priceLong, detail: notes.join(' · '), slots, comparable, finalCents: final };
+  return { ...base, price, priceLong, detail: notes.join(' · '), slots, slotTimes, comparable, finalCents: final };
 }
 
 /**

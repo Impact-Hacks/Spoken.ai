@@ -4,6 +4,7 @@ import answers from './routes/answers.js';
 import providers from './routes/providers.js';
 import calls from './routes/calls.js';
 import sessions from './routes/sessions.js';
+import bookings from './routes/bookings.js';
 import { callMode, resumeUnfinished } from './worker.js';
 
 const app = express();
@@ -18,6 +19,7 @@ app.use('/api/answers', answers);
 app.use('/api/providers', providers);
 app.use('/api/call', calls);
 app.use('/api/sessions', sessions);
+app.use('/api/bookings', bookings);
 
 app.use((err, req, res, next) => {
   if (err.type === 'entity.too.large') {

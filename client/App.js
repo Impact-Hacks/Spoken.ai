@@ -11,7 +11,15 @@ import {
   Figtree_800ExtraBold,
 } from '@expo-google-fonts/figtree';
 
-import { getCallStatus, getResults, startCalls as requestCalls, submitAnswers, submitIntake } from './src/lib/api';
+import {
+  getCallStatus,
+  getResults,
+  newRequestId,
+  sendBooking as requestBooking,
+  startCalls as requestCalls,
+  submitAnswers,
+  submitIntake,
+} from './src/lib/api';
 import { colors } from './src/theme';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import DescribeScreen from './src/screens/DescribeScreen';
@@ -64,6 +72,7 @@ const INITIAL = {
   unit: '',
   email: '',
   sending: false,
+  bookingError: null,
   receipt: null,
   // status: idle | loading | ready | error. Ready carries sessionId, suggestedService, questions.
   intake: { status: 'idle' },
@@ -83,6 +92,9 @@ export default function App() {
   const timers = useRef([]);
   const intakeRequest = useRef(null);
   const callsRun = useRef(null);
+  // { id, key }: the id is reused when the same request is retried, so the server never emails
+  // twice for one tap. A changed slot or email is a new request and gets a new id.
+  const bookingRequest = useRef(null);
 
   const update = useCallback((patch) => setState((s) => ({ ...s, ...patch })), []);
   const go = useCallback((screen) => update({ screen }), [update]);
@@ -195,28 +207,41 @@ export default function App() {
       });
   };
 
-  // Simulated send; swap for the booking endpoint. Once sent, drop the photo, text and
-  // details and keep only what the confirmation screen shows.
+  // Emails the request to the provider. Once sent, drop the photo,
+  // text and details and keep only what the confirmation screen shows.
   const sendBooking = () => {
-    update({ sending: true });
-    intakeRequest.current = null;
-    later(
-      () =>
-        setState((s) => {
-          const sent = s.offers.find((o) => o.id === s.offer);
-          return {
-            ...INITIAL,
-            screen: 'sent',
-            receipt: {
-              provider: sent.name,
-              slot: sent.slots[s.slot],
-              price: sent.priceLong,
-              email: s.email,
-            },
-          };
-        }),
-      1200
-    );
+    const sent = state.offers.find((o) => o.id === state.offer);
+    const slot = sent.slots[state.slot];
+    const key = JSON.stringify([sent.id, slot, state.email.trim()]);
+    if (bookingRequest.current?.key !== key) bookingRequest.current = { id: newRequestId(), key };
+    update({ sending: true, bookingError: null });
+    requestBooking({
+      sessionId: state.intake.sessionId,
+      providerId: sent.id,
+      slot,
+      price: sent.priceLong,
+      terms: sent.detail,
+      issue: state.issue.trim(),
+      customer: {
+        name: state.name,
+        phone: state.phone,
+        address: state.address,
+        unit: state.unit,
+        zip: state.zip,
+        email: state.email.trim(),
+      },
+      clientRequestId: bookingRequest.current.id,
+    })
+      .then(() => {
+        bookingRequest.current = null;
+        intakeRequest.current = null;
+        setState({
+          ...INITIAL,
+          screen: 'sent',
+          receipt: { provider: sent.name, slot, price: sent.priceLong, email: state.email.trim() },
+        });
+      })
+      .catch((err) => update({ sending: false, bookingError: err.message }));
   };
 
   // A finished or abandoned flow starts the next one from a blank slate: photo, text and details.
@@ -225,6 +250,7 @@ export default function App() {
     timers.current = [];
     intakeRequest.current = null;
     callsRun.current = null;
+    bookingRequest.current = null;
     setState(INITIAL);
   };
 
