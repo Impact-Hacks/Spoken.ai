@@ -2,8 +2,7 @@
 // ElevenLabs (or a mock in CALL_MODE=simulated), polls each conversation until it ends,
 // saves the transcript, extracts the offer with Gemini, then writes the comparison.
 //
-// Calls that share a destination number run one after another, since one phone can only
-// take one call; different numbers are dialed in parallel about a second apart.
+// Calls run one after another, in provider order, even when they go to different numbers.
 
 import { demoPhoneFor, providersFor, providersToCall, SERVICE_LABELS } from './data/providers.js';
 import { getConversation, startOutboundCall } from './lib/elevenlabs.js';
@@ -16,7 +15,6 @@ import { listSessionIds, loadSession, loadSessionFile, saveSessionFile } from '.
 const POLL_MS = 4000;
 const CALL_DEADLINE_MS = 12 * 60 * 1000;
 const GAP_BETWEEN_CALLS_MS = 5000;
-const STAGGER_MS = 1000;
 
 const STATUS_MAP = {
   initiated: 'ringing',
@@ -206,27 +204,12 @@ export async function runSession(sessionId) {
 
     const persist = () => saveSessionFile(sessionId, 'state.json', state);
     const ctx = { sessionId, session, state, persist };
-    const providers = providersFor(session.serviceCategory);
 
-    // Group calls by destination so one phone never gets two calls at once.
-    const lanes = new Map();
-    state.calls.forEach((call, index) => {
-      const provider = providers.find((p) => p.id === call.providerId);
-      const key = state.mode === 'live' ? demoPhoneFor(provider) : 'simulated';
-      if (!lanes.has(key)) lanes.set(key, []);
-      lanes.get(key).push({ call, index });
-    });
-
-    await Promise.all(
-      [...lanes.values()].map(async (lane, laneIndex) => {
-        await sleep(laneIndex * STAGGER_MS);
-        for (const [i, { call, index }] of lane.entries()) {
-          const dialsNow = !call.conversationId && call.status === 'queued';
-          if (i > 0 && dialsNow && state.mode === 'live') await sleep(GAP_BETWEEN_CALLS_MS);
-          await runCall(ctx, call, index);
-        }
-      })
-    );
+    for (const [index, call] of state.calls.entries()) {
+      const dialsNow = !call.conversationId && call.status === 'queued';
+      if (index > 0 && dialsNow && state.mode === 'live') await sleep(GAP_BETWEEN_CALLS_MS);
+      await runCall(ctx, call, index);
+    }
     await finish(ctx);
   } catch (err) {
     console.error(`[calls] ${sessionId.slice(0, 8)} run failed:`, err);

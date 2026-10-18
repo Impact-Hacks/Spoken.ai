@@ -267,7 +267,7 @@ sequenceDiagram
   participant Rep as Demo phone
   App->>API: POST /api/call
   API-->>App: 202 processing
-  loop each provider; calls to the same number wait for the previous one
+  loop each provider, one call at a time
     API->>EL: POST /v1/convai/twilio/outbound-call
     EL->>TW: dial DEMO_PHONES[phoneSlot]
     TW->>Rep: ring
@@ -284,7 +284,7 @@ sequenceDiagram
 ```
 
 1. Express resolves each destination as `DEMO_PHONES[phoneSlot % count]`. The client never supplies a number.
-2. Calls are grouped by destination number. Calls to the same number run one after another, five seconds apart, because one phone can take only one call. Different numbers are dialed in parallel about one second apart. With one demo number and four providers, a run takes about four call lengths.
+2. Calls run one after another, in provider order, even when they go to different numbers. Each call finishes, including its transcript and Gemini extraction, before the next one is dialed five seconds later. A run with four providers takes about four call lengths.
 3. For each call, Express sends `agent_id`, `agent_phone_number_id`, `to_number`, and the dynamic variables in `conversation_initiation_client_data`. It saves the returned conversation ID and call SID in `state.json`.
 4. On a Twilio trial account, Twilio plays a notice and the answerer presses a key to connect.
 5. The worker polls the conversation every four seconds until it is `done` or `failed`, then saves the transcript and runs the extraction.
