@@ -7,6 +7,11 @@ const PICK_OPTIONS = { mediaTypes: ['images'], quality: 0.7 };
 
 export default function DescribeScreen({ state, update, go, describeDone }) {
   const ok = !!state.photo && state.issue.trim().length > 0 && Number(state.budget) > 0;
+  const rejected = state.intake.status === 'error' && state.intake.code === 'ISSUE_REJECTED';
+  // Changing the photo or the text clears a rejection; Continue checks them again.
+  const edit = (patch) => update(rejected ? { ...patch, intake: { status: 'idle' } } : patch);
+  let hint = ok ? null : 'Add a photo, a description and your budget to continue';
+  if (ok && rejected) hint = state.intake.message;
 
   const pick = async (source) => {
     const fromCamera = source === 'camera';
@@ -20,7 +25,7 @@ export default function DescribeScreen({ state, update, go, describeDone }) {
     const result = fromCamera
       ? await ImagePicker.launchCameraAsync(PICK_OPTIONS)
       : await ImagePicker.launchImageLibraryAsync(PICK_OPTIONS);
-    if (!result.canceled) update({ photo: result.assets[0] });
+    if (!result.canceled) edit({ photo: result.assets[0] });
   };
 
   const choosePhoto = () =>
@@ -41,7 +46,7 @@ export default function DescribeScreen({ state, update, go, describeDone }) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityHint="Removes this photo so you can retake it"
-                onPress={() => update({ photo: null })}
+                onPress={() => edit({ photo: null })}
                 style={styles.photoRow}
               >
                 <Image source={{ uri: state.photo.uri }} style={styles.thumb} />
@@ -67,7 +72,7 @@ export default function DescribeScreen({ state, update, go, describeDone }) {
             <Input
               multiline
               value={state.issue}
-              onChangeText={(issue) => update({ issue })}
+              onChangeText={(issue) => edit({ issue })}
               placeholder="Describe the problem in your own words"
             />
           </Field>
@@ -82,7 +87,7 @@ export default function DescribeScreen({ state, update, go, describeDone }) {
           </Field>
         </View>
       </Body>
-      <Footer hint={ok ? null : 'Add a photo, a description and your budget to continue'}>
+      <Footer hint={hint}>
         <PrimaryButton label="Continue" disabled={!ok} onPress={describeDone} />
       </Footer>
     </KeyboardScreen>

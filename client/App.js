@@ -155,6 +155,8 @@ export default function App() {
       intakeRequest.current = null;
       return update({ photo: null, intake: { status: 'idle' }, screen: 'describe' });
     }
+    // Keep the photo and text; the describe screen shows why the text was rejected.
+    if (status === 'error' && code === 'ISSUE_REJECTED') return go('describe');
     update({ awaitingQuestions: true });
     if (status !== 'loading') startIntake();
   };

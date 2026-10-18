@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
-import { analyzeIntake, GeminiUnavailableError } from '../lib/gemini.js';
+import { analyzeIntake, GeminiBlockedError, GeminiUnavailableError } from '../lib/gemini.js';
 import { saveSession } from '../lib/file-store.js';
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_ISSUE_CHARS = 2000;
+const ISSUE_REJECTED_MESSAGE = 'Describe the repair problem shown in your photo.';
 
 // clientRequestId -> response, so a retried request returns the same session and questions.
 const completed = new Map();
@@ -54,6 +55,10 @@ router.post('/', async (req, res) => {
   try {
     analysis = await analyzeIntake({ imageBase64: base64, mimeType, issue, budget: budgetValue });
   } catch (err) {
+    if (err instanceof GeminiBlockedError) {
+      console.warn('[intake] input blocked:', err.message);
+      return fail(res, 422, 'ISSUE_REJECTED', ISSUE_REJECTED_MESSAGE);
+    }
     if (err instanceof GeminiUnavailableError) {
       console.warn('[intake] image analysis unavailable:', err.message);
       return fail(res, 503, 'IMAGE_ANALYSIS_UNAVAILABLE', "We couldn't check your photo just now. Try again.");
@@ -61,9 +66,19 @@ router.post('/', async (req, res) => {
     throw err;
   }
 
+  // Text that is unsafe, instructs the AI, or isn't a repair problem is rejected whatever the
+  // photo shows. A text/photo mismatch counts only once the photo is usable; otherwise the
+  // photo is the thing to fix.
+  const verdict = analysis.issueVerdict;
+  const rejectIssue = () => {
+    console.warn(`[intake] description rejected: ${verdict}`);
+    return fail(res, 422, 'ISSUE_REJECTED', analysis.issueProblem?.trim().slice(0, 200) || ISSUE_REJECTED_MESSAGE);
+  };
+  if (verdict !== 'ok' && verdict !== 'mismatch') return rejectIssue();
   if (!analysis.imageUsable) {
     return fail(res, 422, 'IMAGE_UNCLEAR', analysis.retakeReason || 'Try a clearer photo of the problem.');
   }
+  if (verdict === 'mismatch') return rejectIssue();
 
   const sessionId = randomUUID();
   const questions = analysis.questions.map((q, i) => ({

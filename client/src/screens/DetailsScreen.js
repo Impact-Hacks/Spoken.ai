@@ -13,7 +13,9 @@ export default function DetailsScreen({ state, update, go, detailsDone }) {
   if (ok && failed) hint = message;
   let label = 'Continue';
   if (waiting) label = 'Preparing your questions…';
-  else if (ok && failed) label = code === 'IMAGE_UNCLEAR' ? 'Retake photo' : 'Try again';
+  else if (ok && failed) {
+    label = { IMAGE_UNCLEAR: 'Retake photo', ISSUE_REJECTED: 'Edit description' }[code] || 'Try again';
+  }
 
   return (
     <KeyboardScreen>
