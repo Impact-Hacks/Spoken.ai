@@ -19,6 +19,41 @@ Spoken.ai makes getting a repair quote accessible to people who can’t use spok
 4. **Compare offers.** Prices and times from each call, with the best comparable offer marked.
 5. **Request a booking.** The provider gets an email with the details and a calendar file, and replies to you to confirm.
 
+## Architecture
+
+```mermaid
+flowchart LR
+  App["Mobile app<br/>Expo · React Native"]
+
+  subgraph Backend["Backend · Node.js + Express"]
+    API["REST API"]
+    Worker["Call worker"]
+    Store[("Session files<br/>JSON + transcripts")]
+  end
+
+  Gemini["Gemini<br/>photo questions · safety check<br/>offer extraction"]
+  EL["ElevenLabs<br/>voice agent Sam"]
+  Twilio["Twilio"]
+  Phones["Provider phones"]
+  Resend["Resend"]
+  Inbox["Provider inbox<br/>request + .ics"]
+
+  App -- "photo, answers, booking" --> API
+  App -. "polls call progress" .-> API
+  API -- "intake" --> Gemini
+  API -- "start calls" --> Worker
+  Worker -- "dial, fetch transcript" --> EL
+  EL <--> Twilio
+  Twilio <--> Phones
+  Worker -- "extract offer" --> Gemini
+  API --> Store
+  Worker --> Store
+  API -- "booking email" --> Resend
+  Resend --> Inbox
+```
+
+The app talks only to the backend, which keeps every API key, phone number, and transcript. Calls run one at a time in the background while the app polls for progress.
+
 ## Accessibility
 
 - No speaking, listening, or microphone access at any step.
