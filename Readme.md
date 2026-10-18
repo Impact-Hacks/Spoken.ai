@@ -34,6 +34,28 @@ Getting a repair quote usually means calling several providers and explaining th
 - Four supported service categories: `electrical_appliances`, `plumbing`, `vehicle`, and `carpentry`
 - Demo providers instead of real businesses
 
+## Screens
+
+The full flow on an iPhone 16 Pro simulator, with simulated calls. The phone number and address on the details screen are placeholders.
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="33%"><img src="docs/screens/01-onboarding.png" alt="Onboarding screen" width="230"><br><b>Onboarding</b><br><sub>You type, we make the call</sub></td>
+    <td align="center" valign="top" width="33%"><img src="docs/screens/02-describe.png" alt="Describe screen" width="230"><br><b>Describe</b><br><sub>Photo, written issue, budget</sub></td>
+    <td align="center" valign="top" width="33%"><img src="docs/screens/03-details.png" alt="Your details screen" width="230"><br><b>Your details</b><br><sub>Kept on the device until booking</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="33%"><img src="docs/screens/04-questions.png" alt="Two quick questions screen" width="230"><br><b>Two quick questions</b><br><sub>Grounded in the photo by Gemini</sub></td>
+    <td align="center" valign="top" width="33%"><img src="docs/screens/05-summary.png" alt="Summary screen" width="230"><br><b>Summary</b><br><sub>What Sam will ask, and how many providers</sub></td>
+    <td align="center" valign="top" width="33%"><img src="docs/screens/06-calling.png" alt="Calling screen" width="230"><br><b>Calling</b><br><sub>Live call progress, plus a game while you wait</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="33%"><img src="docs/screens/07-offers.png" alt="Your offers screen" width="230"><br><b>Your offers</b><br><sub>Compared prices; best comparable offer</sub></td>
+    <td align="center" valign="top" width="33%"><img src="docs/screens/08-booking.png" alt="Request an appointment screen" width="230"><br><b>Request an appointment</b><br><sub>Pick an offered time</sub></td>
+    <td align="center" valign="top" width="33%"><img src="docs/screens/09-sent.png" alt="Request sent screen" width="230"><br><b>Request sent</b><br><sub>Emailed to the provider, not yet confirmed</sub></td>
+  </tr>
+</table>
+
 ## User Flow
 
 ```text
