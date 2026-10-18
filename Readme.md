@@ -1,57 +1,46 @@
 # CallAi
 
-CallAi lets someone who cannot use a spoken phone call submit a repair photo and a written issue, compare demo-provider offers, and email a booking request.
+CallAi helps people who cannot use a spoken phone call compare repair offers. A photo and a written description are enough to start. An AI voice agent calls demo providers, and the user reviews the results and sends a booking request.
 
 ## Overview
 
-CallAi is an accessibility-focused mobile app. A user submits a required repair image and a required written issue, answers two image-grounded questions, sees how many demo providers match, and taps **Call N providers**. The backend places simulated or live calls, analyzes transcripts, and returns a comparison. The user selects a provider and a time and sends a booking request without speaking on the phone.
+CallAi is an accessibility-focused mobile app. A user submits a repair photo and a written issue, answers a few questions, compares service-provider offers, and requests an appointment without speaking on the phone.
 
-The mobile client is Expo / React Native. The API is Node.js and Express, with one worker that finishes call analysis after `POST /api/call` returns. Gemini reads the image, writes the questions, builds the brief, extracts offer terms, and compares providers. In live mode, a Gemini model inside ElevenLabs speaks as **Sam**, and Twilio carries the phone connection. Resend sends the booking email. There is no login, no ZIP-code field, no database, and no web search for businesses.
-
-This repository is a planning baseline. The app, API, and external integrations are not implemented here and have not been tested.
+The app is Expo / React Native. A Node.js and Express backend uses Gemini to understand the problem and compare offers. ElevenLabs and Twilio place the provider calls. Resend sends the booking request email. The demo uses configured demo providers, not real businesses.
 
 ## Problem
 
-Comparing repair prices usually means explaining the same leak, appliance, vehicle, or carpentry problem to several providers by phone. That call blocks people who cannot speak or cannot use spoken phone conversations. They can show the problem and write what is wrong. They still need scope, price, timing, and a way to request a time. CallAi keeps the user’s path in images, text, and taps, and moves the provider conversations to Sam.
+Getting a repair quote usually means calling several providers and explaining the same problem each time. That phone call is an accessibility barrier for people who cannot speak or cannot use spoken phone conversations. They can show what is wrong and write it down. They should still be able to compare price, scope, and availability.
 
-## Architecture
+## Solution
 
-These rows describe the planned design. None of these integrations are implemented in this repository.
+1. Submit a problem photo and written description.
+2. Answer two image-grounded questions.
+3. Find matching demo providers.
+4. Let the AI voice agent call providers.
+5. Compare offers, prices, and availability.
+6. Send a booking request to the selected provider.
 
-| Component | Technology | Responsibility |
-| --- | --- | --- |
-| Mobile app | Expo / React Native | Required image and written issue, two questions, match count, call button, loading, comparison, booking |
-| Backend | Node.js / Express | Validate intake, store session state, start calls, poll-ready results, send booking email |
-| AI analysis | Gemini | Image findings, questions, service brief, category, transcript extraction, comparison |
-| Live voice agent | ElevenLabs with Gemini | Sam’s spoken turns on a live call |
-| Telephony | Twilio | Outbound phone connection for live calls |
-| Email | Resend | One booking request to the selected demo address |
-| Storage | Local JSON and text files | Sessions, transcripts, analysis, comparison, bookings |
-| Database | None | No database client or schema |
-| Authentication | None | A session ID groups files. It is not an access token |
+## Key Features
 
-The phone must reach the API over HTTPS. `localhost` on the laptop is not the phone’s localhost. `POST /api/call` returns `202` immediately. One worker then checks call completion, runs Gemini, and sends email. The app polls status and loads the comparison when it is ready. Signed ElevenLabs and Resend webhooks update local files only. They are not a path for transcripts to the phone.
+- Image and text-based service request
+- Image-grounded follow-up questions
+- AI-assisted provider conversations
+- Price and availability comparison
+- Accessibility without speaking or microphone access
+- Simulated-call mode for testing
+- Booking request email
+- Four supported service categories: `electrical_appliances`, `plumbing`, `vehicle`, and `carpentry`
+- Demo providers instead of real businesses
 
-```mermaid
-flowchart LR
-  MobileApp[Mobile App] --> Backend[Express Backend]
-  Backend --> Gemini[Gemini]
-  Backend --> Voice[ElevenLabs / Twilio]
-  Backend --> Storage[Local JSON / Text Storage]
-  Backend --> Resend[Resend]
-```
-
-## Core Flow
+## User Flow
 
 ```text
-Required image and written issue
-→ two image-grounded questions
-→ service brief and category
-→ matching provider count
-→ Call N providers
-→ simulated or live calls
-→ transcript analysis
-→ final comparison
+Problem photo + written issue
+→ follow-up questions
+→ provider matching
+→ AI calls providers
+→ offer comparison
 → provider and time selection
 → booking request email
 ```
@@ -371,47 +360,5 @@ RESEND_FROM_EMAIL=<your-verified-domain-sender>
 RESEND_WEBHOOK_SECRET=<your-resend-webhook-secret>
 DATA_DIR=backend/data
 CALL_MODE=simulated
+→ booking request
 ```
-
-`DEMO_PHONES` is the only source of dialed numbers. Keep `CALL_MODE=simulated` until a live practice call is intentional.
-
-## Testing Requirements
-
-These checks are required before a judged demo. They are not implemented in this repository, and none of them have been run.
-
-- **Validation.** Reject a missing image, an empty issue, a non-image payload, and an oversized body before any Gemini call. Accept a real JPEG or PNG plus written issue. Return the documented `422`, `415`, `413`, and `503` cases. Confirm image byte, dimension, and long-edge limits.
-- **Questions and category.** Confirm exactly two image-grounded questions with two or three options. A different photo produces different questions. A blurry or conflicting photo retakes or clarifies and does not invent observations. An appliance leak is not forced into `plumbing`. The brief uses exactly one of the four category ids. Empty categories return count zero and a disabled call button.
-- **Simulated-call tests.** In `CALL_MODE=simulated`, intake, questions, and answers place no call. Only **Call N providers** starts work. Sample transcripts are written under the session call folders. The app receives the comparison without transcript text, excerpts, or file paths. Loading uses status polling. Failed calls appear as exclusions.
-- **Transcript extraction tests.** Run extraction only on a finalized transcript. Unknown amounts stay null. Waived fees are the only zeros. Hourly and inspection-only prices are not treated as full repair totals. Evidence turns are retained in local analysis files and are not returned to the app.
-- **Comparison tests.** Comparable fixed quotes can be ranked. Estimates stay labeled. Incomplete totals stay incomplete. Negotiated reduction uses the same provider and unchanged scope only. No monthly or annual savings are shown. A Gemini failure preserves transcripts and does not invent an offer.
-- **Duplicate-call tests.** A repeated `POST /api/call` does not dial the same session and provider again. Restart reuses existing conversation records.
-- **Duplicate-booking tests.** **Send booking request** is the only send trigger. The same client request ID does not send a second email. The slot must be in the future and belong to that analysis version. The UI says the request is awaiting provider confirmation.
-- **Webhook signature tests.** ElevenLabs and Resend callbacks verify signatures on the raw body, deduplicate events, and return a retryable error when the file write fails. Resend delivery does not mark the appointment confirmed.
-- **Accessibility checks.** Complete the path with text and taps only. Confirm there is no microphone prompt, no voice recording, and no requirement to speak or answer a call. Confirm loading, error, success, and recommendation states are readable as text.
-- **Live practice.** Before the judged demo, place at least five difficult live calls to teammate numbers. Cover interruptions, hourly versus fixed prices, inspection-only estimates, unclear fees, a rejected target, and no quote. These calls are not a claim that live mode already works.
-
-## Current Status
-
-This is a planning baseline. The repository contains the README and the MIT license. The Expo app, Express routes, local file store, Gemini prompts, ElevenLabs agent, Twilio connection, and Resend sending are not implemented here and have not been tested against team accounts.
-
-Limitations that remain part of the design:
-
-- No provider web search, no ZIP-code matching, and no calls to real businesses.
-- No login, payments, deposits, or booking during the quote call.
-- No calendar integration, inbound-email confirmation, cancellation, or rescheduling.
-- A booking email requests a time. It does not confirm the appointment.
-- Simulated mode is the first end-to-end target once the app and API exist. Live calls, when built, stay limited to `DEMO_PHONES`.
-
-## Future Improvements
-
-Only after the core flow works end to end:
-
-- A second negotiation round that calls the two best providers back and asks each to beat the other’s verified quote.
-- Location-based provider discovery.
-- More service categories, which requires its own scope change.
-- Deployment.
-- A provider confirmation workflow. This baseline does not treat email delivery as confirmation.
-
-## License
-
-MIT.
