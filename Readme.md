@@ -8,7 +8,7 @@ Spoken.ai is an accessibility-focused mobile app. A user submits a repair photo 
 
 The app is Expo / React Native (`client/`). A Node.js and Express backend (`backend/`) uses Gemini to understand the problem and extract offers from call transcripts. ElevenLabs and Twilio place the provider calls. The demo uses configured demo providers, not real businesses.
 
-**Status.** Intake, questions, answers, provider matching, live and simulated calls, transcript extraction, and the offer comparison are implemented. The booking request email (Resend) and the signed webhooks are still planned; the booking screen is simulated in the app.
+**Status.** Intake, questions, answers, provider matching, live and simulated calls, transcript extraction, the offer comparison, and the booking request email (Resend, with a calendar file) are implemented. The signed webhooks and booking status lookup are still planned.
 
 ## Problem
 
@@ -21,7 +21,7 @@ Getting a repair quote usually means calling several providers and explaining th
 3. Find matching demo providers.
 4. Let the AI voice agent call providers.
 5. Compare offers, prices, and availability.
-6. Send a booking request to the selected provider (planned; simulated today).
+6. Email a booking request, with a calendar file, to the selected provider.
 
 ## Key Features
 
@@ -44,20 +44,20 @@ Problem photo + written issue + budget
 → AI calls providers
 → offer comparison
 → provider and time selection
-→ booking request (simulated)
+→ booking request email
 ```
 
 There is no login and no separate category-approval screen. A loading screen with per-call progress sits between the call tap and the comparison.
 
 1. **Describe.** The user takes or selects a required photo, types the issue, and enters a maximum budget in dollars (required, greater than zero). Example: an under-sink pipe photo and “Water is leaking from the pipe under my kitchen sink.” Leaving this screen sends `POST /api/intake` in the background.
 2. **Intake.** `POST /api/intake` validates the image, text, and budget. Gemini sees the photo and text in one request and returns observations, one suggested category, and exactly two multiple-choice questions grounded in those observations. Raw image bytes are discarded. Intake never places a call.
-3. **Details.** While intake runs, the user enters name, phone, address, ZIP, and an optional unit. These stay on the device; only the first name is sent later, so Sam can say who it is calling for. If Gemini finds the photo unclear, the user is sent back to retake it.
+3. **Details.** While intake runs, the user enters name, phone, address, ZIP, and an optional unit. These stay on the device until the booking request. Only the first name is sent when calls start, so Sam can say who it is calling for. The full details go to the server, and into the provider email, only when the user taps **Send booking request**. If Gemini finds the photo unclear, the user is sent back to retake it.
 4. **Questions.** The user taps one option for each question. `POST /api/answers` checks both answers against the saved options, stores them, sets the call category to Gemini’s suggested category, and returns `providerCount`. Answers cannot change after calls start.
 5. **Summary.** “Here’s what I’ll ask” shows the service, a plain summary of the user’s report and answers (built in the app, not a diagnosis), and “I found N providers who may help.” The button reads **Call N providers**. N is the number of providers that will actually be called (see `CALL_LIMIT`). Zero disables the button.
 6. **Calls.** **Call N providers** is the only call trigger. `POST /api/call` starts the run in the background and returns `202 processing`. Destinations come only from `DEMO_PHONES`. Repeated starts for the same session do not dial again.
 7. **Loading.** The app shows “Calling providers and comparing offers” with a row per call (Waiting, Dialing, Ringing, On the call, Wrapping up, Finished, Didn’t connect). It polls `GET /api/sessions/:sessionId/status` every three seconds, backing off up to 15 seconds on errors. If the calls cannot start, the screen shows the reason with **Try again**.
 8. **Results.** When every call is finished and analyzed, the app loads `GET /api/sessions/:sessionId/results`. Each provider shows a price, price basis, details, and offered times. Calls without a usable quote appear as exclusions (“Would not quote over the phone”, “No answer”, “Call did not connect”). “Best comparable offer” is shown only when a fixed complete-job price with a time exists.
-9. **Booking (simulated).** The user selects one offered time, confirms name, address, and contact email, and taps **Send booking request**. Today the app only shows the “Booking request sent” confirmation; no email is sent. A sent request is not a confirmed appointment.
+9. **Booking.** The user selects one offered time, enters a contact email, and taps **Send booking request**. `POST /api/bookings` emails the request to the provider (see [Booking Request Email](#booking-request-email)). On success the app shows “Booking request sent” and clears the photo, issue, and details. A sent request is not a confirmed appointment; the provider replies to the user’s email to confirm. If the send fails, the screen shows the reason and the user can try again without sending a second email.
 
 ## Supported Service Categories
 
@@ -104,7 +104,7 @@ Listing ranges are demo context for a stated example job. They are not accepted 
 | carpentry | `grainworks` | Grainworks Woodshop | Hyattsville, MD | 110–300 | 1 |
 | carpentry | `dovetail` | Dovetail Fixers | Greenbelt, MD | 80–220 | 2 |
 
-Demo provider emails for the booking request are not configured yet.
+Provider rows have no email addresses. Every booking request goes to the one teammate address in `PROVIDER_EMAIL`, which stands in for all providers.
 
 ## Accessibility
 
@@ -125,12 +125,12 @@ The primary audience is people who cannot speak or cannot use spoken phone conve
 client/App.js                             screen state machine, intake, answers, call start and polling
 client/src/screens/OnboardingScreen.js    intro
 client/src/screens/DescribeScreen.js      required photo, written issue, budget
-client/src/screens/DetailsScreen.js       name, phone, address, ZIP (kept on the device)
+client/src/screens/DetailsScreen.js       name, phone, address, ZIP (sent only with the booking request)
 client/src/screens/QuestionsScreen.js     two image-grounded questions
 client/src/screens/SummaryScreen.js       summary, provider count, Call N providers
 client/src/screens/LoadingScreen.js       per-call progress until the comparison is ready
 client/src/screens/ResultsScreen.js       offers and recommendation
-client/src/screens/BookingScreen.js       pick a time and details (simulated send)
+client/src/screens/BookingScreen.js       pick a time, contact email, send the request
 client/src/screens/SentScreen.js          booking request confirmation
 client/src/lib/api.js                     HTTP requests; backend URL from Metro's host
 client/src/data/mock.js                   category labels and the local summary text
@@ -141,22 +141,25 @@ backend/src/routes/answers.js             validate answers, set category, return
 backend/src/routes/providers.js           count only; matched IDs stay server-side
 backend/src/routes/calls.js               start the call run
 backend/src/routes/sessions.js            call status and final results
+backend/src/routes/bookings.js            validate and email one booking request
 backend/src/data/providers.js             categories, listing ranges, phone slots, CALL_LIMIT
 backend/src/lib/file-store.js             serialized atomic JSON and text writes
 backend/src/lib/elevenlabs.js             start outbound calls and fetch conversations
 backend/src/lib/gemini.js                 intake questions and offer extraction
 backend/src/lib/transcripts.js            normalize conversation payloads into JSON and text
 backend/src/lib/compare.js                cents-based offer comparison
+backend/src/lib/email.js                  Resend client and the fixed booking-request template
+backend/src/lib/calendar.js               .ics file attached to the booking email
 backend/src/lib/mock.js                   sample conversations for simulated mode
 backend/data/sessions/                    runtime files, ignored by Git
 backend/.env.example                      provider credentials and settings
 ```
 
-Stubs for planned work: `backend/src/routes/questions.js`, `bookings.js`, `elevenlabs-webhook.js`, `resend-webhook.js`, and `backend/src/lib/email.js`.
+Stubs for planned work: `backend/src/routes/questions.js`, `elevenlabs-webhook.js`, and `resend-webhook.js`.
 
 ## API Overview
 
-No route requires login or an `Authorization` header. The client never sends phone numbers or transcript text. Destinations and quotes come from server files.
+No route requires login or an `Authorization` header. The client never sends provider phone numbers, provider emails, or transcript text. Destinations and quotes come from server files.
 
 | Method | Path | Status | Behavior |
 | --- | --- | --- | --- |
@@ -168,7 +171,7 @@ No route requires login or an `Authorization` header. The client never sends pho
 | `GET` | `/api/sessions/:sessionId/results` | Implemented | `202` while processing, then `{ status, offers, recommendedId }`. |
 | `POST` | `/api/questions` | Planned | Return the two saved questions. |
 | `POST` | `/api/elevenlabs-webhook` | Planned | Signed post-call transcript. Not needed today; the worker polls ElevenLabs instead. |
-| `POST` | `/api/bookings` | Planned | Queue one booking email after **Send booking request**. |
+| `POST` | `/api/bookings` | Implemented | Body `{ sessionId, providerId, slot, customer, clientRequestId }`. Email one booking request to `PROVIDER_EMAIL`. Return `202` with `bookingId`, `requestStatus: submitted`, and `appointmentStatus: awaiting_provider`. Errors: `422 PROVIDER_INVALID`, `EMAIL_INVALID`, `SLOT_INVALID`; `404 OFFER_NOT_FOUND`; `502 EMAIL_FAILED`; `503 EMAIL_NOT_CONFIGURED`. |
 | `GET` | `/api/bookings/:bookingId` | Planned | Return stored email state. |
 | `POST` | `/api/resend-webhook` | Planned | Update email delivery state. |
 
@@ -180,7 +183,7 @@ The client re-encodes the photo to a JPEG with a long edge of about 1024 pixels,
 
 **Call status.** Each call moves through `queued` → `dialing` → `ringing` → `live` → `wrapping-up` → `done`, or ends `failed`. ElevenLabs statuses map `initiated` → `ringing`, `in-progress` → `live`, `processing` → `wrapping-up`, `done` → `done`, `failed` → `failed`. A run is `ready` when at least one call finished, otherwise `failed`. Each call has a 12-minute deadline so loading cannot continue forever.
 
-**Results.** Offers include provider name, price, long price, details, offered times, and the `best` flag. They omit transcripts, conversation IDs, phone numbers, and file paths.
+**Results.** Offers include provider name, price, long price, details, offered times (display labels plus `slotTimes` with date, window, and time zone), and the `best` flag. They omit transcripts, conversation IDs, phone numbers, and file paths.
 
 ## Voice Agent
 
@@ -226,6 +229,19 @@ The agent’s maximum call length is set in ElevenLabs (currently 600 seconds). 
 - An inspection-only price shows as the price of an inspection, with “Repair priced after inspection.”
 - Only future slots are shown.
 - “Best comparable offer” goes to the cheapest fixed complete-job price that has at least one slot. Otherwise no recommendation is made.
+
+## Booking Request Email
+
+**Send booking request** calls `POST /api/bookings`, which sends one email through Resend. The email is a fixed template; no model writes it.
+
+- **Recipient.** `PROVIDER_EMAIL`, the teammate address that stands in for every demo provider. Reply-To is the user’s email, so the provider answers the user directly.
+- **Content.** Requested time, quoted price and terms, the problem, the user’s name, phone, service address, and email, and a request ID. It states that this is a request, not a confirmed booking.
+- **Trusted values.** With a `sessionId`, the price, terms, and issue come from the session’s `comparison.json` and `session.json`, and the slot must be one the provider offered. The client’s copies are ignored. Without a session (booking-screen testing only), the client’s offer summary is used as sent.
+- **Calendar file.** The email attaches `appointment.ics`, a tentative “add to calendar” event (not a meeting invite with Accept/Decline). A window such as “9–11 AM ET” becomes a timed event in that time zone (US zones such as ET, CT, MT, and PT). A window with no recognized time zone becomes a timed event in the reader’s local time. A window that can’t be parsed, such as “morning”, becomes an all-day event with the window in the title, so no time is invented. If the slot has no usable date, the email is sent without the file.
+- **No duplicate emails.** The app sends a `clientRequestId` and reuses it when the same request is retried, so a retry after a timeout returns the first result instead of emailing again. It also becomes the Resend idempotency key, and the server reuses the same booking ID and timestamp for it so the retried email is identical. Changing the provider, time, or email starts a new request.
+- **Storage.** With a session, the result is saved as `bookings/<bookingId>.json` (status, provider, slot, price, time). The email itself is not stored.
+
+**Resend sender.** `RESEND_FROM_EMAIL` defaults to Resend’s shared test sender, `Spoken.ai <onboarding@resend.dev>`. That sender only delivers to the Resend account owner’s address, so with it `PROVIDER_EMAIL` must be that address. To email anyone else, verify a domain in Resend and set `RESEND_FROM_EMAIL` to an address on it.
 
 ## Twilio Call Flow
 
@@ -302,12 +318,14 @@ backend/data/sessions/<sessionId>/
     transcript.txt             readable Sam and provider lines
     analysis.json              Gemini offer extraction
   comparison.json              offers and recommendation shown to the user
+  bookings/<bookingId>.json    booking request result (no email body)
 ```
 
 - Session IDs are generated on the server. File paths are always built by server code, never from client input.
 - Runtime data under `backend/data/` is ignored by Git.
 - Raw images and credentials are not stored.
 - Transcripts, analyses, and phone numbers never go to the mobile app.
+- Apart from the first name in `session.json`, the user’s name, phone, address, and email are not stored on the server. They pass through once, into the booking email.
 - Writes are atomic: write a temp file beside the target, then rename it. Writes to one file are serialized.
 - A session is called at most once; a repeated start returns the existing run.
 - Delete `backend/data/sessions/` when a demo is finished.
@@ -332,7 +350,7 @@ cp .env.example .env     # fill in the keys
 npm run dev              # restarts on code and .env changes
 ```
 
-The API listens on `http://0.0.0.0:4310` (or `PORT`) and logs the call mode at startup. Intake needs only `GEMINI_API_KEY`. Live calls also need the ElevenLabs settings and `DEMO_PHONES`.
+The API listens on `http://0.0.0.0:4310` (or `PORT`) and logs the call mode at startup. Intake needs only `GEMINI_API_KEY`. Live calls also need the ElevenLabs settings and `DEMO_PHONES`. Booking emails need `RESEND_API_KEY` and `PROVIDER_EMAIL`.
 
 Do not commit API keys or demo phone numbers.
 
@@ -366,9 +384,10 @@ ELEVENLABS_AGENT_ID=<your-elevenlabs-agent-id>
 ELEVENLABS_AGENT_PHONE_NUMBER_ID=<phnum_...>
 ELEVENLABS_WEBHOOK_SECRET=            # planned webhook, unused today
 DEMO_PHONES=<+1XXXXXXXXXX,+1XXXXXXXXXX>
-RESEND_API_KEY=                       # planned booking email, unused today
-RESEND_FROM_EMAIL=
-RESEND_WEBHOOK_SECRET=
+RESEND_API_KEY=<your-resend-api-key>
+RESEND_FROM_EMAIL=                    # optional; defaults to Spoken.ai <onboarding@resend.dev>
+RESEND_WEBHOOK_SECRET=                # planned webhook, unused today
+PROVIDER_EMAIL=<teammate@example.com> # receives every booking request
 DATA_DIR=backend/data
 CALL_MODE=simulated                   # or live
 CALL_LIMIT=                           # call only the first N providers; empty calls all
