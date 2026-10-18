@@ -4,7 +4,7 @@
 const API = 'https://api.resend.com/emails';
 const TIMEOUT_MS = 15000;
 // Resend's shared test sender; it only delivers to the Resend account's own address.
-const DEFAULT_FROM = 'CallAi <onboarding@resend.dev>';
+const DEFAULT_FROM = 'Spoken.ai <onboarding@resend.dev>';
 
 export class EmailError extends Error {}
 

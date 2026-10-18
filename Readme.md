@@ -1,10 +1,10 @@
-# CallAi
+# Spoken.ai
 
-CallAi helps people who cannot use a spoken phone call compare repair offers. A photo and a written description are enough to start. An AI voice agent calls demo providers, and the user reviews the results and sends a booking request.
+Spoken.ai helps people who cannot use a spoken phone call compare repair offers. A photo and a written description are enough to start. An AI voice agent calls demo providers, and the user reviews the results and sends a booking request.
 
 ## Overview
 
-CallAi is an accessibility-focused mobile app. A user submits a repair photo and a written issue, answers a few questions, compares service-provider offers, and requests an appointment without speaking on the phone.
+Spoken.ai is an accessibility-focused mobile app. A user submits a repair photo and a written issue, answers a few questions, compares service-provider offers, and requests an appointment without speaking on the phone.
 
 The app is Expo / React Native (`client/`). A Node.js and Express backend (`backend/`) uses Gemini to understand the problem and extract offers from call transcripts. ElevenLabs and Twilio place the provider calls. The demo uses configured demo providers, not real businesses.
 

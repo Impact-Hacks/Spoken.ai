@@ -1,5 +1,5 @@
 {
-  "name": "callai-client",
+  "name": "spoken-ai-client",
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {

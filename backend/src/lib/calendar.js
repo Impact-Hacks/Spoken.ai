@@ -109,11 +109,11 @@ export function calendarFile(booking) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//CallAi//Booking request//EN',
+    'PRODID:-//Spoken.ai//Booking request//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
-    `UID:${booking.bookingId}@callai`,
+    `UID:${booking.bookingId}@spoken.ai`,
     `DTSTAMP:${stamp(new Date(booking.createdAt))}`,
     ...when,
     `SUMMARY:${escapeText(title)}`,

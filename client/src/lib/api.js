@@ -37,7 +37,7 @@ async function request(method, path, body, timeoutMs = 20000) {
       'NETWORK',
       controller.signal.aborted
         ? 'This is taking too long. Try again.'
-        : "Can't reach the CallAi server. Check it's running and your phone is on the same Wi-Fi."
+        : "Can't reach the Spoken.ai server. Check it's running and your phone is on the same Wi-Fi."
     );
   } finally {
     clearTimeout(timer);

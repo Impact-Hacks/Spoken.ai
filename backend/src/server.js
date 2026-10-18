@@ -38,6 +38,6 @@ app.listen(port, '0.0.0.0', (err) => {
     console.error(`[server] could not listen on port ${port}: ${err.code || err.message}`);
     process.exit(1);
   }
-  console.log(`CallAi API listening on http://0.0.0.0:${port} (CALL_MODE=${callMode()})`);
+  console.log(`Spoken.ai API listening on http://0.0.0.0:${port} (CALL_MODE=${callMode()})`);
   resumeUnfinished();
 });

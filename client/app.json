@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "CallAi",
-    "slug": "callai",
+    "name": "Spoken.ai",
+    "slug": "spoken-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,8 +25,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "CallAi uses your photos so you can show providers the problem.",
-          "cameraPermission": "CallAi uses the camera so you can photograph the problem."
+          "photosPermission": "Spoken.ai uses your photos so you can show providers the problem.",
+          "cameraPermission": "Spoken.ai uses the camera so you can photograph the problem."
         }
       ]
     ]
