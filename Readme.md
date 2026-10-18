@@ -235,6 +235,60 @@ If Gemini times out, keep the transcripts, retry with backoff, and show “Compa
 
 The booking email is a fixed template, not model-written mail. It includes the customer name, written problem, service, requested date, arrival window, time zone, discussed amount and price basis, known fees and conditions, user-entered service address and contact details, and a request ID. It asks the provider to confirm or suggest another time. It states that the email requests the appointment and does not assume the slot is reserved. It omits raw images and transcripts. The user’s contact email may be Reply-To. It is not the From address. `RESEND_FROM_EMAIL` must be on a verified domain. The default Resend test sender is limited to that account’s own address, so it cannot be assumed to reach every demo inbox. A missing sender or demo recipient is a setup error, not a successful send.
 
+## Twilio Call Flow
+
+This is the planned live-call path. It is not implemented (`backend/src/lib/elevenlabs.js` is still a stub) and has not been tested against team accounts.
+
+Twilio only carries the phone line. ElevenLabs owns the conversation: it runs Sam with its configured Gemini model, transcribes the rep, and speaks Sam’s replies. Express never talks to Twilio directly and never relays conversational turns. The backend has no Twilio env vars.
+
+**One-time setup (calling owner):**
+
+1. Create a Twilio account on free trial credit. Buy a **local-area-code** number, not toll-free. Carriers often block toll-free outbound calls to cell phones as spam.
+2. Verify all four teammates’ phones as Twilio caller IDs. A trial account cannot call unverified numbers.
+3. In the ElevenLabs **Phone Numbers** tab, import the Twilio number and assign it to the Sam agent.
+4. Copy the ElevenLabs **phone number ID** into `ELEVENLABS_AGENT_PHONE_NUMBER_ID`. Use the ID, not the phone number itself, or ElevenLabs rejects the call. Copy the agent ID into `ELEVENLABS_AGENT_ID`.
+5. Put teammate numbers in `DEMO_PHONES` as comma-separated `+1XXXXXXXXXX` values. The order matches each provider’s `phoneSlot` in `backend/src/data/providers.js`. Keep them in the backend `.env.local`, never the repository or the mobile app.
+6. Enable the signed post-call transcript webhook pointing to `APP_BASE_URL/api/elevenlabs-webhook`. Disable audio-delivery webhooks.
+
+**Per call, after the user taps Call N providers:**
+
+```mermaid
+sequenceDiagram
+  participant App as Mobile app
+  participant API as Express
+  participant EL as ElevenLabs (Sam)
+  participant TW as Twilio
+  participant Rep as Teammate phone
+  App->>API: POST /api/call
+  API-->>App: 202 processing
+  loop each matched provider, ~1 second apart
+    API->>EL: POST /v1/convai/twilio/outbound-call
+    EL->>TW: dial DEMO_PHONES[phoneSlot]
+    TW->>Rep: ring
+    Rep->>TW: answer, press a key (trial message)
+    TW->>EL: call audio (both directions)
+    EL->>Rep: Sam: intro, issue, quote, up to 2 negotiation attempts, slots
+  end
+  EL->>API: signed post-call webhook (final transcript)
+  API->>API: save transcript.json / .txt, queue Gemini analysis
+  App->>API: GET /api/sessions/:id/status (poll)
+```
+
+1. Express loads the saved brief and matched provider IDs, then resolves each destination as `DEMO_PHONES[provider.phoneSlot]`. The client never supplies a number.
+2. For each provider, Express calls `POST https://api.elevenlabs.io/v1/convai/twilio/outbound-call` with `agent_id`, `agent_phone_number_id`, `to_number`, and the dynamic variables for that provider (customer name, provider name, category, listing range and basis, negotiation target, written issue, image observations, answers, budget, history). Calls start about one second apart to avoid Twilio rate limits.
+3. Express saves the returned conversation ID and call SID in the call’s `state.json` entry before moving on. A repeated start for the same session and provider reuses that record instead of dialing again. If a start result is uncertain, reconcile it rather than blindly retrying.
+4. ElevenLabs tells Twilio to dial the teammate. On a trial account, Twilio plays a trial notice first and the answerer presses a key to connect.
+5. Twilio streams call audio to and from ElevenLabs. Sam runs the conversation described in [Voice Agent](#voice-agent), capped at about two minutes. `end_call`, voicemail detection, and keypad tones are enabled for hang-ups, voicemail, and phone menus.
+6. When the call ends, ElevenLabs processes it and sends the signed post-call webhook. Express verifies the signature on the raw body, keeps only the transcript and essential metadata, writes `transcript.json` and `transcript.txt`, and marks analysis pending.
+7. If the webhook is late, the worker polls `GET https://api.elevenlabs.io/v1/convai/conversations/{id}`. Status maps `initiated` → `ringing`, `in-progress` → `live`, `processing` → `wrapping-up`, `done` → `done`, `failed` → `failed`. Busy, no-answer, and failed calls become exclusions in the comparison.
+
+**Twilio gotchas:**
+
+- Trial accounts play a notice and require a keypress. Rehearse it so the demo does not stall.
+- Unverified numbers fail on trial. Verify every phone in hour one.
+- Every call spends both Twilio trial credit and ElevenLabs minutes. Four 90-second calls use about 6 call-minutes. Keep `CALL_MODE=simulated` until a live call is intentional.
+- The app only dials `DEMO_PHONES`. It never calls real businesses.
+
 ## Simulated Call Mode
 
 Simulated mode and live mode are both planned. Neither is implemented in this repository.
