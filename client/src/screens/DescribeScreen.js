@@ -1,4 +1,4 @@
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Body, Field, Footer, IconButton, Input, KeyboardScreen, PrimaryButton, Title } from '../components/ui';
 import { colors, font } from '../theme';
@@ -28,8 +28,9 @@ export default function DescribeScreen({ state, update, go, describeDone }) {
     if (!result.canceled) edit({ photo: result.assets[0] });
   };
 
+  // Alert buttons don't render on web; the browser's file picker already offers the camera on phones.
   const choosePhoto = () =>
-    Alert.alert('Photo of the problem', undefined, [
+    Platform.OS === 'web' ? pick('library') : Alert.alert('Photo of the problem', undefined, [
       { text: 'Take photo', onPress: () => pick('camera') },
       { text: 'Choose from library', onPress: () => pick('library') },
       { text: 'Cancel', style: 'cancel' },
@@ -61,7 +62,7 @@ export default function DescribeScreen({ state, update, go, describeDone }) {
               <Pressable
                 accessibilityRole="button"
                 onPress={choosePhoto}
-                style={({ pressed }) => [styles.dropzone, pressed && { backgroundColor: colors.hover }]}
+                style={({ pressed, hovered }) => [styles.dropzone, (pressed || hovered) && { backgroundColor: colors.hover }]}
               >
                 <Text style={styles.dropTitle}>Take or choose a photo</Text>
                 <Text style={styles.photoHint}>Required</Text>

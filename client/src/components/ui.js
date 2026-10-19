@@ -53,10 +53,10 @@ export function PrimaryButton({ label, onPress, disabled, variant = 'primary' })
       accessibilityState={{ disabled: !!disabled }}
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [
+      style={({ pressed, hovered }) => [
         styles.button,
         secondary && styles.buttonSecondary,
-        pressed && !secondary && { backgroundColor: colors.limePressed },
+        (pressed || hovered) && !disabled && (secondary ? styles.buttonSecondaryHover : { backgroundColor: colors.limePressed }),
         disabled && { opacity: 0.45 },
       ]}
     >
@@ -72,7 +72,7 @@ export function IconButton({ icon, label, onPress }) {
       accessibilityLabel={label}
       onPress={onPress}
       hitSlop={4}
-      style={styles.iconButton}
+      style={({ hovered }) => [styles.iconButton, hovered && { backgroundColor: colors.borderSoft }]}
     >
       {icon === 'close' ? <CloseIcon /> : <BackIcon />}
     </Pressable>
@@ -161,10 +161,10 @@ export function RadioOption({ label, selected, onPress }) {
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={({ pressed, hovered }) => [
         styles.radio,
         selected && styles.radioSelected,
-        pressed && !selected && { backgroundColor: colors.hover },
+        (pressed || hovered) && !selected && { backgroundColor: colors.hover },
       ]}
     >
       <Text style={styles.radioText}>{label}</Text>
@@ -179,12 +179,19 @@ export function RadioOption({ label, selected, onPress }) {
   );
 }
 
+// Web only: ease hover colour changes. Native has no hover, so it gets nothing.
+const webTransition = Platform.select({
+  web: { transitionProperty: 'background-color', transitionDuration: '120ms' },
+  default: {},
+});
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   body: { flexGrow: 1, paddingTop: 12, paddingHorizontal: 24 },
   footer: { paddingTop: 16, paddingHorizontal: 24, paddingBottom: 24, gap: 8 },
   hint: { ...font(400), fontSize: 14, color: colors.muted, textAlign: 'center' },
   button: {
+    ...webTransition,
     height: 56,
     borderRadius: 28,
     backgroundColor: colors.lime,
@@ -192,8 +199,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonSecondary: { backgroundColor: colors.chip },
+  buttonSecondaryHover: { backgroundColor: colors.borderSoft },
   buttonText: { ...font(700), fontSize: 17, color: colors.forest },
   iconButton: {
+    ...webTransition,
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -224,6 +233,7 @@ const styles = StyleSheet.create({
   },
   input: {
     ...font(400),
+    ...Platform.select({ web: { outlineStyle: 'none' }, default: {} }),
     height: 56,
     borderWidth: 1,
     borderColor: colors.border,
@@ -235,6 +245,7 @@ const styles = StyleSheet.create({
   textarea: { height: undefined, minHeight: 112, paddingTop: 14, paddingBottom: 14, lineHeight: 24 },
   inputFocused: { borderWidth: 2, borderColor: colors.forest },
   radio: {
+    ...webTransition,
     height: 52,
     borderWidth: 1,
     borderColor: colors.border,

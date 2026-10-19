@@ -30,6 +30,7 @@ import LoadingScreen from './src/screens/LoadingScreen';
 import ResultsScreen from './src/screens/ResultsScreen';
 import BookingScreen from './src/screens/BookingScreen';
 import SentScreen from './src/screens/SentScreen';
+import WebFrame from './src/components/WebFrame';
 
 const SCREENS = {
   onboarding: OnboardingScreen,
@@ -265,18 +266,20 @@ export default function App() {
     <SafeAreaProvider>
       <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <Screen
-          state={state}
-          update={update}
-          go={go}
-          offer={offer}
-          describeDone={describeDone}
-          detailsDone={detailsDone}
-          answersDone={answersDone}
-          startCalls={startCalls}
-          sendBooking={sendBooking}
-          restart={restart}
-        />
+        <WebFrame>
+          <Screen
+            state={state}
+            update={update}
+            go={go}
+            offer={offer}
+            describeDone={describeDone}
+            detailsDone={detailsDone}
+            answersDone={answersDone}
+            startCalls={startCalls}
+            sendBooking={sendBooking}
+            restart={restart}
+          />
+        </WebFrame>
       </SafeAreaView>
     </SafeAreaProvider>
   );

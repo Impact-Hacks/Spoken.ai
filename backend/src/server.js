@@ -13,6 +13,15 @@ const port = Number(process.env.PORT) || 4310;
 // 2 MiB of image is ~2.7 MiB of base64; 3 MiB covers that plus the text fields.
 app.use(express.json({ limit: '3mb' }));
 
+// The web build runs on a different origin (Expo's dev server), so allow CORS.
+app.use((req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'content-type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 app.get('/health', (req, res) => res.json({ ok: true }));
 app.use('/api/intake', intake);
 app.use('/api/answers', answers);

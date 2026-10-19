@@ -87,9 +87,9 @@ export default function TicTacToe() {
               accessibilityLabel={`Row ${Math.floor(i / 3) + 1}, column ${(i % 3) + 1}, ${mark || 'empty'}`}
               accessibilityState={{ disabled: !!mark || !!result || computerTurn }}
               onPress={() => play(i)}
-              style={({ pressed }) => [
+              style={({ pressed, hovered }) => [
                 styles.cell,
-                pressed && !mark && !result && styles.cellPressed,
+                (pressed || hovered) && !mark && !result && styles.cellPressed,
                 winning && styles.cellWinning,
               ]}
             >

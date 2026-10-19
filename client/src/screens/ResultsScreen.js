@@ -27,7 +27,12 @@ export default function ResultsScreen({ state, update, go, offer, restart }) {
                 accessibilityState={{ checked: selected, disabled: !available }}
                 disabled={!available}
                 onPress={() => update({ offer: o.id, slot: 0 })}
-                style={[styles.card, selected && styles.cardSelected, !available && { opacity: 0.7 }]}
+                style={({ hovered }) => [
+                  styles.card,
+                  hovered && available && !selected && { backgroundColor: colors.hover },
+                  selected && styles.cardSelected,
+                  !available && { opacity: 0.7 },
+                ]}
               >
                 {o.best ? (
                   <View style={styles.badge}>
