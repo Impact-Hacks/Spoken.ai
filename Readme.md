@@ -11,6 +11,9 @@ Spoken.ai makes getting a repair quote accessible to people who can’t use spok
   </tr>
 </table>
 
+<img width="1470" height="881" alt="image" src="https://github.com/user-attachments/assets/ef79d1e9-5808-424c-a0f9-9edd1b011f4b" />
+
+
 ## How it works
 
 1. **Describe it.** Add a photo, a few words about the problem, and a budget.
