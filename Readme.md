@@ -1,4 +1,4 @@
-# Spoken.ai
+# Spoken.ai (Winner of Technica 2026)
 
 Spoken.ai makes getting a repair quote accessible to people who can’t use spoken phone calls, including Deaf and hard-of-hearing people and people who are nonspeaking or have a speech disability. Instead of phoning around, the user shares a photo and a written description of the problem. An AI voice agent makes the calls on their behalf, negotiates, and brings back offers to compare, and the user sends a booking request by email. Every step works with text, images, and taps: no speaking, listening, or microphone needed.
 
